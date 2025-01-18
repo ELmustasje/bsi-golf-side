@@ -13,18 +13,32 @@ interface Group {
 const GolfSimulatorTable: React.FC = () => {
   const [groups, setGroups] = useState<Group[][]>([]);
   const [time, setTime] = useState([]);
+  const [isFetching, setIsFetching] = useState<boolean>(true);
+
 
   useEffect(() => {
-    fetch('https://bsi-golf-api.vercel.app/groups')
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.groups) {
+    const fetchGroups = async () => {
+      try {
+        const response = await fetch("https://bsi-golf-api.vercel.app/groups");
+        const data = await response.json();
+
+        if (data.groups && data.groups.length > 0) {
           setGroups(data.groups);
+          setIsFetching(false); // Stop fetching if groups are found
         } else {
-          console.error('Unexpected response structure:', data);
+          console.warn("Groups are empty. Retrying...");
+          setTimeout(fetchGroups, 500); // Retry after 3 seconds
         }
-      })
-      .catch((error) => console.error('Error fetching data:', error));
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setTimeout(fetchGroups, 500); // Retry after 3 seconds on error
+      }
+    };
+
+    fetchGroups();
+
+    // Clean up function to stop polling when the component unmounts
+    return () => setIsFetching(false);
   }, []);
 
   useEffect(() => {
