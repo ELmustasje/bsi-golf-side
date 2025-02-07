@@ -34,7 +34,6 @@ const GolfSimulatorTable: React.FC = () => {
         setTimeout(fetchGroups, 500); // Retry after 3 seconds on error
       }
     };
-
     fetchGroups();
 
     // Clean up function to stop polling when the component unmounts
@@ -71,7 +70,7 @@ const GolfSimulatorTable: React.FC = () => {
                 <ul>
                   {group.map((player, idx) => (
                     <li key={idx}>
-                      {player[0]} {player[1]}
+                      {player}
                     </li>
                   ))}
                 </ul>
