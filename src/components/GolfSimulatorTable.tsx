@@ -31,10 +31,13 @@ const GolfSimulatorTable: React.FC = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-        setTimeout(fetchGroups, 500); // Retry after 3 seconds on error
+
       }
+
     };
+
     fetchGroups();
+    setInterval(fetchGroups, 500); // Retry after 3 seconds on error
 
     // Clean up function to stop polling when the component unmounts
     return () => setIsFetching(false);
