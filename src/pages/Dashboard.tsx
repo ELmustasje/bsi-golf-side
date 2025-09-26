@@ -13,14 +13,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ groups, busy, error }) => 
     <main className="mx-auto max-w-6xl px-4 py-10">
       <section className="space-y-8">
         <header className="flex flex-col gap-3 text-center">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1 text-xs font-semibold uppercase tracking-widest text-emerald-700">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-            Live pairings
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Tonight&apos;s Simulator Groups</h1>
-          <p className="text-sm text-slate-500">
-            Up to six simulators are supported. For changes or reshuffles please contact an administrator.
-          </p>
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Dagen&apos;s Grupper</h1>
         </header>
 
         {(busy || error) && (
