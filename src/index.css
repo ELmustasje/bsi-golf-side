@@ -1,13 +1,11 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Optional: small semantic touches */
+@layer utilities {
+  .card { @apply rounded-2xl border shadow-sm; }
+  .btn  { @apply rounded-xl border px-3 py-2 text-sm shadow-sm hover:bg-gray-50 disabled:opacity-60; }
+  .h1   { @apply text-2xl font-bold; }
+  .h2   { @apply text-lg font-semibold; }
 }
