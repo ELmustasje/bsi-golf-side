@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import type { Attendee, Group } from "../types";
 
 interface AdminDashboardProps {
@@ -10,6 +10,7 @@ interface AdminDashboardProps {
   error: string | null;
   onPullFromSpond: () => Promise<unknown>;
   onShuffle: () => Promise<unknown>;
+  onSwap: (attendeeOne: string, attendeeTwo: string) => Promise<unknown>;
   onLoadSaved: () => Promise<unknown>;
   attendees: Attendee[];
   groups: Group[];
@@ -83,6 +84,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   error,
   onPullFromSpond,
   onShuffle,
+  onSwap,
   onLoadSaved,
   attendees,
   groups,
@@ -92,6 +94,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [passwordInput, setPasswordInput] = useState("");
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState<string | null>(null);
+  const [draggedAttendee, setDraggedAttendee] = useState<string | null>(null);
 
   const maskedBaseUrl = useMemo(() => {
     try {
@@ -112,6 +117,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const formattedAttendeesUpdated = useMemo(() => formatTimestamp(attendeesUpdatedAt), [attendeesUpdatedAt]);
   const formattedGroupsUpdated = useMemo(() => formatTimestamp(groupsUpdatedAt), [groupsUpdatedAt]);
+
+  const isInteractionDisabled = !!busy;
+
+  const handleMemberSwap = useCallback(
+    async (source: string, target: string) => {
+      if (!source || !target || source === target) {
+        setSelectedAttendee(null);
+        setDraggedAttendee(null);
+        return;
+      }
+      try {
+        await onSwap(source, target);
+      } finally {
+        setSelectedAttendee(null);
+        setDraggedAttendee(null);
+      }
+    },
+    [onSwap]
+  );
+
+  const handleMemberClick = useCallback(
+    (name: string) => {
+      if (!editMode || isInteractionDisabled) {
+        return;
+      }
+      if (selectedAttendee === name) {
+        setSelectedAttendee(null);
+        return;
+      }
+      if (selectedAttendee && selectedAttendee !== name) {
+        void handleMemberSwap(selectedAttendee, name);
+      } else {
+        setSelectedAttendee(name);
+      }
+    },
+    [editMode, handleMemberSwap, isInteractionDisabled, selectedAttendee]
+  );
+
+  const handleDragStart = useCallback(
+    (event: React.DragEvent<HTMLButtonElement>, name: string) => {
+      if (!editMode || isInteractionDisabled) {
+        event.preventDefault();
+        return;
+      }
+      setDraggedAttendee(name);
+      setSelectedAttendee(name);
+      if (event.dataTransfer) {
+        event.dataTransfer.setData("text/plain", name);
+        event.dataTransfer.effectAllowed = "move";
+      }
+    },
+    [editMode, isInteractionDisabled]
+  );
+
+  const handleDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement | HTMLButtonElement>) => {
+      if (!editMode || isInteractionDisabled) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = draggedAttendee ? "move" : "none";
+      }
+    },
+    [draggedAttendee, editMode, isInteractionDisabled]
+  );
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLButtonElement>, target: string) => {
+      if (!editMode || isInteractionDisabled) {
+        return;
+      }
+      event.preventDefault();
+      const source = event.dataTransfer?.getData("text/plain") || draggedAttendee;
+      if (!source) {
+        return;
+      }
+      void handleMemberSwap(source, target);
+    },
+    [draggedAttendee, editMode, handleMemberSwap, isInteractionDisabled]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedAttendee(null);
+    setSelectedAttendee(null);
+  }, []);
 
   const handleAuth = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -279,6 +370,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
 
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-slate-500">
+                      Toggle edit mode to drag &amp; drop or click two attendees to swap their assigned groups.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isInteractionDisabled) {
+                          return;
+                        }
+                        setEditMode((value) => !value);
+                        setSelectedAttendee(null);
+                        setDraggedAttendee(null);
+                      }}
+                      disabled={isInteractionDisabled}
+                      aria-pressed={editMode}
+                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+                        editMode
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                          : "border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-600"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      <span
+                        className={`block h-2 w-2 rounded-full ${editMode ? "bg-emerald-500" : "bg-slate-300"}`}
+                      />
+                      Edit mode
+                    </button>
+                  </div>
+                  {editMode && (
+                    <div className="text-xs font-medium text-emerald-600">
+                      {selectedAttendee
+                        ? `Select another attendee to swap with ${selectedAttendee}.`
+                        : "Select or drag an attendee to start a swap."}
+                    </div>
+                  )}
+                </div>
+
                 {groups.length ? (
                   <div className="mt-4 space-y-3">
                     {groups.map((group) => (
@@ -291,14 +420,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {(group.members ?? []).length ? (
-                            group.members!.map((member, index) => (
-                              <span
-                                key={`${group.group_id}-${index}`}
-                                className="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs text-slate-700"
-                              >
-                                {getDisplayName(member, index + 1)}
-                              </span>
-                            ))
+                            group.members!.map((member, index) => {
+                              const memberName = getDisplayName(member, index + 1);
+                              const isSelected = selectedAttendee === memberName;
+                              const isDragging = draggedAttendee === memberName;
+                              return (
+                                <button
+                                  key={`${group.group_id}-${index}`}
+                                  type="button"
+                                  draggable={editMode && !isInteractionDisabled}
+                                  onClick={() => handleMemberClick(memberName)}
+                                  onDragStart={(event) => handleDragStart(event, memberName)}
+                                  onDragEnd={handleDragEnd}
+                                  onDragOver={handleDragOver}
+                                  onDrop={(event) => handleDrop(event, memberName)}
+                                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs transition ${
+                                    editMode
+                                      ? "cursor-move border-emerald-200 bg-white text-slate-700 hover:border-emerald-400"
+                                      : "border-transparent bg-slate-200 text-slate-700"
+                                  } ${
+                                    isSelected ? "ring-2 ring-emerald-400" : ""
+                                  } ${isDragging ? "opacity-70" : ""}`}
+                                  disabled={isInteractionDisabled}
+                                >
+                                  {memberName}
+                                </button>
+                              );
+                            })
                           ) : (
                             <span className="text-xs text-slate-500">No attendees assigned</span>
                           )}
