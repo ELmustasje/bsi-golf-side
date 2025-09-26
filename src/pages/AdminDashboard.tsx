@@ -19,7 +19,7 @@ interface AdminDashboardProps {
   groupsUpdatedAt: Date | null;
 }
 
-const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD ?? "letmein";
+const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD;
 
 const formatTimestamp = (value: Date | null) => {
   if (!value) return "Never";
@@ -341,11 +341,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       }}
                       disabled={isInteractionDisabled}
                       aria-pressed={editMode}
-                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-                        editMode
-                          ? "border-emerald-500 bg-emerald-50 text-emerald-600"
-                          : "border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-600"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${editMode
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                        : "border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-600"
+                        } disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       <span
                         className={`block h-2 w-2 rounded-full ${editMode ? "bg-emerald-500" : "bg-slate-300"}`}
@@ -388,13 +387,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   onDragEnd={handleDragEnd}
                                   onDragOver={handleDragOver}
                                   onDrop={(event) => handleDrop(event, memberName)}
-                                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs transition ${
-                                    editMode
-                                      ? "cursor-move border-emerald-200 bg-white text-slate-700 hover:border-emerald-400"
-                                      : "border-transparent bg-slate-200 text-slate-700"
-                                  } ${
-                                    isSelected ? "ring-2 ring-emerald-400" : ""
-                                  } ${isDragging ? "opacity-70" : ""}`}
+                                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs transition ${editMode
+                                    ? "cursor-move border-emerald-200 bg-white text-slate-700 hover:border-emerald-400"
+                                    : "border-transparent bg-slate-200 text-slate-700"
+                                    } ${isSelected ? "ring-2 ring-emerald-400" : ""
+                                    } ${isDragging ? "opacity-70" : ""}`}
                                   disabled={isInteractionDisabled}
                                 >
                                   {memberName}
