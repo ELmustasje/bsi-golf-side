@@ -41,10 +41,13 @@ export default function App() {
   }, [client]);
 
   const fetchGroups = useCallback(async () => {
-    const data = await client.getGroups();
-    setGroups(data);
+    const res = await client.getGroups();
+    setGroups(res.groups);
+    if (typeof res.sim_count === "number") {
+      setSimCount(res.sim_count);
+    }
     setGroupsUpdatedAt(new Date());
-    return data;
+    return res;
   }, [client]);
 
   const initialize = useCallback(

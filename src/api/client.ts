@@ -1,5 +1,5 @@
 
-import type { Attendee, Group, ShuffleResponse } from "../types";
+import type { Attendee, ShuffleResponse } from "../types";
 
 const DEFAULT_BASE = "https://bsi-golf-api.vercel.app/";
 
@@ -50,7 +50,7 @@ export class ApiClient {
   }
 
   getGroups() {
-    return this.req<Group[]>("/groups/");
+    return this.req<ShuffleResponse>("/groups/");
   }
 }
 
