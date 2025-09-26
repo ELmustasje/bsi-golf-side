@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import type { Attendee, Group } from "../types";
 
 interface AdminDashboardProps {
   baseUrl: string;
@@ -10,9 +11,68 @@ interface AdminDashboardProps {
   onPullFromSpond: () => Promise<unknown>;
   onShuffle: () => Promise<unknown>;
   onLoadSaved: () => Promise<unknown>;
+  attendees: Attendee[];
+  groups: Group[];
+  attendeesUpdatedAt: Date | null;
+  groupsUpdatedAt: Date | null;
 }
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD ?? "letmein";
+
+const formatTimestamp = (value: Date | null) => {
+  if (!value) return "Never";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value);
+};
+
+const getDisplayName = (person: Attendee, fallbackIndex: number) => {
+  if (person == null) {
+    return `Attendee ${fallbackIndex}`;
+  }
+
+  if (typeof person === "string" || typeof person === "number") {
+    return String(person);
+  }
+
+  const record = person as Record<string, unknown>;
+  const primaryKeys = ["name", "full_name", "fullName", "display_name", "displayName"];
+  for (const key of primaryKeys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  const firstName =
+    typeof record.first_name === "string"
+      ? record.first_name
+      : typeof record.firstName === "string"
+        ? record.firstName
+        : "";
+  const lastName =
+    typeof record.last_name === "string"
+      ? record.last_name
+      : typeof record.lastName === "string"
+        ? record.lastName
+        : "";
+
+  const combined = `${firstName} ${lastName}`.trim();
+  if (combined) {
+    return combined;
+  }
+
+  if (typeof record.email === "string" && record.email.trim()) {
+    return record.email.trim();
+  }
+
+  if (record.id != null) {
+    return `#${record.id}`;
+  }
+
+  return `Attendee ${fallbackIndex}`;
+};
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   baseUrl,
@@ -24,6 +84,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onPullFromSpond,
   onShuffle,
   onLoadSaved,
+  attendees,
+  groups,
+  attendeesUpdatedAt,
+  groupsUpdatedAt,
 }) => {
   const [passwordInput, setPasswordInput] = useState("");
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -37,6 +101,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return baseUrl;
     }
   }, [baseUrl]);
+
+  const totalGroupMembers = useMemo(
+    () => groups.reduce((sum, group) => sum + (group.members?.length ?? 0), 0),
+    [groups]
+  );
+
+  const attendeePreview = useMemo(() => attendees.slice(0, 12), [attendees]);
+  const remainingAttendees = attendees.length - attendeePreview.length;
+
+  const formattedAttendeesUpdated = useMemo(() => formatTimestamp(attendeesUpdatedAt), [attendeesUpdatedAt]);
+  const formattedGroupsUpdated = useMemo(() => formatTimestamp(groupsUpdatedAt), [groupsUpdatedAt]);
 
   const handleAuth = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,7 +187,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   disabled={!!busy}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Refresh groups
+                  Reload data
                 </button>
               </div>
             </div>
@@ -153,6 +228,90 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-base font-semibold text-slate-800">Attendee roster</h2>
+                  <p className="text-sm text-slate-500">
+                    {attendees.length} attendee{attendees.length === 1 ? "" : "s"} ready for the next shuffle.
+                  </p>
+                  <span className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                    Last updated: {formattedAttendeesUpdated}
+                  </span>
+                </div>
+
+                {attendees.length ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {attendeePreview.map((attendee, index) => (
+                        <span
+                          key={`${getDisplayName(attendee, index)}-${index}`}
+                          className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"
+                        >
+                          {getDisplayName(attendee, index + 1)}
+                        </span>
+                      ))}
+                    </div>
+                    {remainingAttendees > 0 && (
+                      <div className="text-xs text-slate-500">
+                        +{remainingAttendees} more attendee{remainingAttendees === 1 ? "" : "s"} loaded
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                    No attendees loaded yet. Pull from Spond or reload saved data to populate the roster.
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-base font-semibold text-slate-800">Published groups</h2>
+                  <p className="text-sm text-slate-500">
+                    {groups.length} active group{groups.length === 1 ? "" : "s"} with {totalGroupMembers} attendee
+                    {totalGroupMembers === 1 ? "" : "s"} assigned.
+                  </p>
+                  <span className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                    Last updated: {formattedGroupsUpdated}
+                  </span>
+                </div>
+
+                {groups.length ? (
+                  <div className="mt-4 space-y-3">
+                    {groups.map((group) => (
+                      <div key={group.group_id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-700">
+                          <span>Group {group.group_id}</span>
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500">
+                            {group.members?.length ?? 0} attendee{(group.members?.length ?? 0) === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(group.members ?? []).length ? (
+                            group.members!.map((member, index) => (
+                              <span
+                                key={`${group.group_id}-${index}`}
+                                className="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-xs text-slate-700"
+                              >
+                                {getDisplayName(member, index + 1)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-500">No attendees assigned</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                    No published groups found. Shuffle attendees to generate a fresh simulator layout.
+                  </div>
+                )}
+              </section>
             </div>
 
             {(busy || error) && (

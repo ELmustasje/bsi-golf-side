@@ -3,7 +3,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { api, ApiClient } from "./api/client";
-import type { Group, ShuffleResponse } from "./types";
+import type { Attendee, Group, ShuffleResponse } from "./types";
 
 type View = "dashboard" | "admin";
 
@@ -13,9 +13,12 @@ export default function App() {
   const client = useMemo(() => new ApiClient(baseUrl), [baseUrl]);
 
   const [groups, setGroups] = useState<Group[]>([]);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [simCount, setSimCount] = useState<number>(4);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attendeesUpdatedAt, setAttendeesUpdatedAt] = useState<Date | null>(null);
+  const [groupsUpdatedAt, setGroupsUpdatedAt] = useState<Date | null>(null);
 
   const safe = useCallback(async <T,>(label: string, fn: () => Promise<T>) => {
     setBusy(label);
@@ -30,13 +33,28 @@ export default function App() {
     }
   }, []);
 
-  const fetchGroups = useCallback(async () => {
-    const data = await client.getGroups();
-    setGroups(data);
+  const fetchAttendees = useCallback(async () => {
+    const data = await client.getAttendees();
+    setAttendees(data);
+    setAttendeesUpdatedAt(new Date());
     return data;
   }, [client]);
 
-  const initialize = useCallback(() => safe("Loading groups", fetchGroups), [safe, fetchGroups]);
+  const fetchGroups = useCallback(async () => {
+    const data = await client.getGroups();
+    setGroups(data);
+    setGroupsUpdatedAt(new Date());
+    return data;
+  }, [client]);
+
+  const initialize = useCallback(
+    () =>
+      safe("Loading data", async () => {
+        await Promise.all([fetchAttendees(), fetchGroups()]);
+        return null;
+      }),
+    [safe, fetchAttendees, fetchGroups]
+  );
 
   useEffect(() => {
     initialize().catch(() => null);
@@ -45,9 +63,11 @@ export default function App() {
   const handlePullFromSpond = useCallback(
     () =>
       safe("Pulling from Spond", async () => {
-        await client.pullFromSpond();
+        const pulled = await client.pullFromSpond();
+        setAttendees(pulled);
+        setAttendeesUpdatedAt(new Date());
         await fetchGroups();
-        return null;
+        return pulled;
       }),
     [client, fetchGroups, safe]
   );
@@ -57,14 +77,22 @@ export default function App() {
       safe("Shuffling groups", async () => {
         const res: ShuffleResponse = await client.shuffle(simCount);
         setGroups(res.groups);
+        setGroupsUpdatedAt(new Date());
+        const flattened = res.groups.flatMap((group) => group.members ?? []);
+        setAttendees(flattened);
+        setAttendeesUpdatedAt(new Date());
         return res;
       }),
     [client, safe, simCount]
   );
 
   const handleLoadSaved = useCallback(
-    () => safe("Loading saved groups", fetchGroups),
-    [fetchGroups, safe]
+    () =>
+      safe("Reloading saved data", async () => {
+        await Promise.all([fetchAttendees(), fetchGroups()]);
+        return null;
+      }),
+    [fetchAttendees, fetchGroups, safe]
   );
 
   return (
@@ -113,6 +141,10 @@ export default function App() {
           onPullFromSpond={handlePullFromSpond}
           onShuffle={handleShuffle}
           onLoadSaved={handleLoadSaved}
+          attendees={attendees}
+          groups={groups}
+          attendeesUpdatedAt={attendeesUpdatedAt}
+          groupsUpdatedAt={groupsUpdatedAt}
         />
       )}
     </div>
