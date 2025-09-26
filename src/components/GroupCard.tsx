@@ -1,6 +1,7 @@
 
 import React from "react";
 import type { Group } from "../types";
+import { getDisplayName } from "../utils/displayName";
 
 export const GroupCard: React.FC<{ group: Group; index?: number }> = ({ group }) => {
   return (
@@ -18,14 +19,17 @@ export const GroupCard: React.FC<{ group: Group; index?: number }> = ({ group })
         </div>
 
         <ul className="flex flex-1 flex-col gap-2 text-lg font-medium text-slate-800">
-          {group.members.map((member, index) => (
-            <li key={index} className="flex items-center gap-3 rounded-2xl bg-white/60 px-3 py-2 text-left shadow-sm">
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-emerald-500/80 text-xs font-bold uppercase tracking-widest text-white">
-                {index + 1}
-              </span>
-              <span>{String(member.name ?? member.full_name ?? member.display_name ?? Object.values(member)[0])}</span>
-            </li>
-          ))}
+          {group.members.map((member, index) => {
+            const memberName = getDisplayName(member, index + 1);
+            return (
+              <li key={index} className="flex items-center gap-3 rounded-2xl bg-white/60 px-3 py-2 text-left shadow-sm">
+                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-emerald-500/80 text-xs font-bold uppercase tracking-widest text-white">
+                  {index + 1}
+                </span>
+                <span>{memberName}</span>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </article>
