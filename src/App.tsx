@@ -86,6 +86,20 @@ export default function App() {
     [client, safe, simCount]
   );
 
+  const handleSwap = useCallback(
+    (attendeeOne: string, attendeeTwo: string) =>
+      safe("Updating groups", async () => {
+        const res: ShuffleResponse = await client.swap(attendeeOne, attendeeTwo);
+        setGroups(res.groups);
+        setGroupsUpdatedAt(new Date());
+        const flattened = res.groups.flatMap((group) => group.members ?? []);
+        setAttendees(flattened);
+        setAttendeesUpdatedAt(new Date());
+        return res;
+      }),
+    [client, safe]
+  );
+
   const handleLoadSaved = useCallback(
     () =>
       safe("Reloading saved data", async () => {
@@ -140,6 +154,7 @@ export default function App() {
           error={error}
           onPullFromSpond={handlePullFromSpond}
           onShuffle={handleShuffle}
+          onSwap={handleSwap}
           onLoadSaved={handleLoadSaved}
           attendees={attendees}
           groups={groups}

@@ -42,6 +42,13 @@ export class ApiClient {
     return this.req<ShuffleResponse>(`/groups/shuffle?${qs}`, { method: "POST" });
   }
 
+  swap(attendeeOne: string, attendeeTwo: string) {
+    return this.req<ShuffleResponse>("/groups/swap", {
+      method: "POST",
+      body: JSON.stringify({ attendee_one: attendeeOne, attendee_two: attendeeTwo }),
+    });
+  }
+
   getGroups() {
     return this.req<Group[]>("/groups/");
   }
