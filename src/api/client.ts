@@ -15,8 +15,14 @@ export class ApiClient {
 
   private async req<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       ...init,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        ...init?.headers,
+      },
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
