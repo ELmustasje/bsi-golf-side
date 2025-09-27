@@ -1,6 +1,7 @@
 export type UnknownRecord = Record<string, any>;
 
 export type Attendee = UnknownRecord; // schema-agnostic
+export type Member = UnknownRecord; // schema-agnostic
 
 export type Group = {
   group_id: number;

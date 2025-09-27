@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import type { Attendee, Group } from "../types";
+import type { Attendee, Group, Member } from "../types";
 import { getDisplayName } from "../utils/displayName";
 
 interface AdminDashboardProps {
@@ -14,12 +14,43 @@ interface AdminDashboardProps {
   onSwap: (attendeeOne: string, attendeeTwo: string) => Promise<unknown>;
   onLoadSaved: () => Promise<unknown>;
   attendees: Attendee[];
+  members: Member[];
+  membersNotAttending: Member[];
   groups: Group[];
-  attendeesUpdatedAt: Date | null;
+  rosterUpdatedAt: Date | null;
   groupsUpdatedAt: Date | null;
 }
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD;
+
+const getRosterIdentifier = (person: Member): string => {
+  if (person == null) {
+    return "";
+  }
+
+  if (typeof person === "string" || typeof person === "number") {
+    return String(person);
+  }
+
+  const record = person as Record<string, unknown>;
+
+  if (record.id != null) {
+    return `id:${String(record.id)}`;
+  }
+
+  const email =
+    typeof record.email === "string" ? record.email.trim().toLowerCase() : "";
+  if (email) {
+    return `email:${email}`;
+  }
+
+  const phone = typeof record.phone === "string" ? record.phone.trim() : "";
+  if (phone) {
+    return `phone:${phone}`;
+  }
+
+  return `name:${getDisplayName(person, 0)}`;
+};
 
 const formatTimestamp = (value: Date | null) => {
   if (!value) return "Never";
@@ -41,8 +72,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSwap,
   onLoadSaved,
   attendees,
+  members,
+  membersNotAttending,
   groups,
-  attendeesUpdatedAt,
+  rosterUpdatedAt,
   groupsUpdatedAt,
 }) => {
   const [passwordInput, setPasswordInput] = useState("");
@@ -66,10 +99,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     [groups]
   );
 
-  const attendeePreview = useMemo(() => attendees.slice(0, 12), [attendees]);
-  const remainingAttendees = attendees.length - attendeePreview.length;
+  const rosterMembers = useMemo(() => {
+    const notAttendingSet = new Set(
+      membersNotAttending.map((member) => getRosterIdentifier(member))
+    );
 
-  const formattedAttendeesUpdated = useMemo(() => formatTimestamp(attendeesUpdatedAt), [attendeesUpdatedAt]);
+    return members.map((member, index) => {
+      const identifier = getRosterIdentifier(member) || `member-${index}`;
+      return {
+        identifier,
+        name: getDisplayName(member, index + 1),
+        isAttending: !notAttendingSet.has(identifier),
+      };
+    });
+  }, [members, membersNotAttending]);
+
+  const notAttendingCount = membersNotAttending.length;
+
+  const formattedRosterUpdated = useMemo(
+    () => formatTimestamp(rosterUpdatedAt),
+    [rosterUpdatedAt]
+  );
   const formattedGroupsUpdated = useMemo(() => formatTimestamp(groupsUpdatedAt), [groupsUpdatedAt]);
 
   const isInteractionDisabled = !!busy;
@@ -280,34 +330,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="flex flex-col gap-1">
                   <h2 className="text-base font-semibold text-slate-800">Attendee roster</h2>
                   <p className="text-sm text-slate-500">
-                    {attendees.length} attendee{attendees.length === 1 ? "" : "s"} ready for the next shuffle.
+                    Showing {rosterMembers.length} member{rosterMembers.length === 1 ? "" : "s"} ({notAttendingCount}
+                    {" "}
+                    not attending next event).
                   </p>
                   <span className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    Last updated: {formattedAttendeesUpdated}
+                    Last updated: {formattedRosterUpdated}
                   </span>
                 </div>
 
-                {attendees.length ? (
-                  <div className="mt-4 space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {attendeePreview.map((attendee, index) => (
-                        <span
-                          key={`${getDisplayName(attendee, index)}-${index}`}
-                          className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700"
-                        >
-                          {getDisplayName(attendee, index + 1)}
-                        </span>
-                      ))}
-                    </div>
-                    {remainingAttendees > 0 && (
-                      <div className="text-xs text-slate-500">
-                        +{remainingAttendees} more attendee{remainingAttendees === 1 ? "" : "s"} loaded
-                      </div>
-                    )}
+                {rosterMembers.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {rosterMembers.map(({ identifier, name, isAttending }) => (
+                      <span
+                        key={identifier}
+                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
+                          isAttending
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-red-200 bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {name}
+                      </span>
+                    ))}
                   </div>
                 ) : (
                   <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                    No attendees loaded yet. Pull from Spond or reload saved data to populate the roster.
+                    No members loaded yet. Pull from Spond or reload saved data to populate the roster.
                   </div>
                 )}
               </section>
