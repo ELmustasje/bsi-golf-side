@@ -3,7 +3,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { api, ApiClient } from "./api/client";
-import type { Attendee, Group, ShuffleResponse } from "./types";
+import type { Attendee, Group, Member, ShuffleResponse } from "./types";
 
 type View = "dashboard" | "admin";
 
@@ -14,10 +14,12 @@ export default function App() {
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersNotAttending, setMembersNotAttending] = useState<Member[]>([]);
   const [simCount, setSimCount] = useState<number>(4);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [attendeesUpdatedAt, setAttendeesUpdatedAt] = useState<Date | null>(null);
+  const [rosterUpdatedAt, setRosterUpdatedAt] = useState<Date | null>(null);
   const [groupsUpdatedAt, setGroupsUpdatedAt] = useState<Date | null>(null);
 
   const safe = useCallback(async <T,>(label: string, fn: () => Promise<T>) => {
@@ -36,8 +38,18 @@ export default function App() {
   const fetchAttendees = useCallback(async () => {
     const data = await client.getAttendees();
     setAttendees(data);
-    setAttendeesUpdatedAt(new Date());
     return data;
+  }, [client]);
+
+  const fetchMembers = useCallback(async () => {
+    const [allMembers, notAttendingMembers] = await Promise.all([
+      client.getMembers(),
+      client.getMembersNotAttendingNextEvent(),
+    ]);
+    setMembers(allMembers);
+    setMembersNotAttending(notAttendingMembers);
+    setRosterUpdatedAt(new Date());
+    return { allMembers, notAttendingMembers };
   }, [client]);
 
   const fetchGroups = useCallback(async () => {
@@ -53,10 +65,10 @@ export default function App() {
   const initialize = useCallback(
     () =>
       safe("Loading data", async () => {
-        await Promise.all([fetchAttendees(), fetchGroups()]);
+        await Promise.all([fetchAttendees(), fetchMembers(), fetchGroups()]);
         return null;
       }),
-    [safe, fetchAttendees, fetchGroups]
+    [safe, fetchAttendees, fetchGroups, fetchMembers]
   );
 
   useEffect(() => {
@@ -68,11 +80,10 @@ export default function App() {
       safe("Pulling from Spond", async () => {
         const pulled = await client.pullFromSpond();
         setAttendees(pulled);
-        setAttendeesUpdatedAt(new Date());
-        await fetchGroups();
+        await Promise.all([fetchGroups(), fetchMembers()]);
         return pulled;
       }),
-    [client, fetchGroups, safe]
+    [client, fetchGroups, fetchMembers, safe]
   );
 
   const handleShuffle = useCallback(
@@ -83,7 +94,6 @@ export default function App() {
         setGroupsUpdatedAt(new Date());
         const flattened = res.groups.flatMap((group) => group.members ?? []);
         setAttendees(flattened);
-        setAttendeesUpdatedAt(new Date());
         return res;
       }),
     [client, safe, simCount]
@@ -97,7 +107,6 @@ export default function App() {
         setGroupsUpdatedAt(new Date());
         const flattened = res.groups.flatMap((group) => group.members ?? []);
         setAttendees(flattened);
-        setAttendeesUpdatedAt(new Date());
         return res;
       }),
     [client, safe]
@@ -106,10 +115,10 @@ export default function App() {
   const handleLoadSaved = useCallback(
     () =>
       safe("Reloading saved data", async () => {
-        await Promise.all([fetchAttendees(), fetchGroups()]);
+        await Promise.all([fetchAttendees(), fetchMembers(), fetchGroups()]);
         return null;
       }),
-    [fetchAttendees, fetchGroups, safe]
+    [fetchAttendees, fetchGroups, fetchMembers, safe]
   );
 
   return (
@@ -160,8 +169,10 @@ export default function App() {
           onSwap={handleSwap}
           onLoadSaved={handleLoadSaved}
           attendees={attendees}
+          members={members}
+          membersNotAttending={membersNotAttending}
           groups={groups}
-          attendeesUpdatedAt={attendeesUpdatedAt}
+          rosterUpdatedAt={rosterUpdatedAt}
           groupsUpdatedAt={groupsUpdatedAt}
         />
       )}
